@@ -124,11 +124,9 @@ class FullIncAlgo:
 
         if rtn_inc is None:
             if has_second_key:
-                infer_value = next(iter(rtn_full))
-                rtn_inc = list(type_generic.get_zero(infer_value))
+                rtn_inc = [None]
             else:
-                infer_value = rtn_full[0]
-                rtn_inc = type_generic.get_zero(infer_value)
+                rtn_inc = None
 
         return rtn_full, rtn_inc
 
@@ -153,7 +151,7 @@ class FullIncAlgo:
                 full[second_key] = value_list[1:]
 
         for second_key, value_list in full:
-            if type_generic.is_empty_info(value_list):
+            if all(value is None for value in value_list):
                 del full[second_key]
 
         if len(full) == 0:
@@ -171,7 +169,7 @@ class FullIncAlgo:
         if len(full) > full_history_times:
             full = full[1:]
 
-        if type_generic.is_empty_info(full):
+        if all(value is None for value in full):
             return None
 
         return full
