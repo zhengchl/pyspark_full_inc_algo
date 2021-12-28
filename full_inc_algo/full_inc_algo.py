@@ -112,7 +112,6 @@ class FullIncAlgo:
 
     @staticmethod
     def _process_none(full, inc, has_second_key):
-        assert (not (full is None and inc is None))
         rtn_full = full
         rtn_inc = inc
 
@@ -201,7 +200,10 @@ class FullIncAlgo:
                       .withColumnRenamed(tmp_col_name, col_name)
                       .cache()
                       )
-        return rtn_df
+
+        filter_cond = ' or '.join(f'{name}_{FullIncAlgo.HISTORY_COL_SUFFIX} is not null' for name in self._value_col_names)
+        filter_df = rtn_df.filter(filter_cond)
+        return filter_df
 
     def run_with_second_key(self):
         agg_args = []
