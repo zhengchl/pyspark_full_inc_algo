@@ -183,7 +183,7 @@ class FullIncAlgo:
             join_df = self._full_df.join(
                 self._inc_df, on=self._primary_key_col_names, how='full')
 
-        rtn_df = join_df
+        update_df = join_df
         for name in self._value_col_names:
             tmp_col_name = f'tmp_{name}_{FullIncAlgo.HISTORY_COL_SUFFIX}'
             col_name = f'{name}_{FullIncAlgo.HISTORY_COL_SUFFIX}'
@@ -193,16 +193,17 @@ class FullIncAlgo:
                                        ArrayType(type_generic.str_2_spark_type(self._value_type_map[name]), True))
                               .asNondeterministic())
 
-            rtn_df = (rtn_df
-                      .withColumn(tmp_col_name,
-                                  update_row_udf(funs.col(col_name), funs.col(name)))
-                      .drop(col_name)
-                      .withColumnRenamed(tmp_col_name, col_name)
-                      .cache()
-                      )
+            update_df = (update_df
+                         .withColumn(tmp_col_name,
+                                     update_row_udf(funs.col(col_name), funs.col(name)))
+                         .drop(col_name)
+                         .withColumnRenamed(tmp_col_name, col_name)
+                         .cache()
+                         )
 
-        filter_cond = ' or '.join(f'{name}_{FullIncAlgo.HISTORY_COL_SUFFIX} is not null' for name in self._value_col_names)
-        filter_df = rtn_df.filter(filter_cond)
+        filter_cond = ' or '.join(
+            f'{name}_{FullIncAlgo.HISTORY_COL_SUFFIX} is not null' for name in self._value_col_names)
+        filter_df = update_df.filter(filter_cond)
         return filter_df
 
     def run_with_second_key(self):
@@ -227,8 +228,8 @@ class FullIncAlgo:
         else:
             join_df = self._full_df.join(
                 group_df, on=self._primary_key_col_names, how='full')
-        join_df.show()
-        rtn_df = join_df
+
+        update_df = join_df
         for name in self._value_col_names:
             value_type = self._value_type_map[name]
             tmp_col_name = f'tmp_{name}_{FullIncAlgo.HISTORY_COL_SUFFIX}'
@@ -236,19 +237,22 @@ class FullIncAlgo:
             tmp_list_col_name = f'{name}_list'
 
             update_row = partial(FullIncAlgo._update_row_with_second_key,
-                                has_second_key=self._has_second_key, full_history_times=self._full_history_times)
+                                 has_second_key=self._has_second_key, full_history_times=self._full_history_times)
             update_row_udf = (funs.udf(update_row,
                                        MapType(StringType(), ArrayType(type_generic.str_2_spark_type(value_type))))
-                                  .asNondeterministic())
+                              .asNondeterministic())
 
-            rtn_df = (rtn_df
-                      .withColumn(tmp_col_name, update_row_udf(
-                                  funs.col(col_name), funs.col(tmp_list_col_name), funs.lit(value_type)))
-                      .drop(col_name, tmp_list_col_name)
-                      .withColumnRenamed(tmp_col_name, col_name)
-                      .cache()
-                      )
-        return rtn_df
+            update_df = (update_df
+                         .withColumn(tmp_col_name, update_row_udf(
+                funs.col(col_name), funs.col(tmp_list_col_name), funs.lit(value_type)))
+                         .drop(col_name, tmp_list_col_name)
+                         .withColumnRenamed(tmp_col_name, col_name)
+                         .cache()
+                         )
+        filter_cond = ' or '.join(
+            f'{name}_{FullIncAlgo.HISTORY_COL_SUFFIX} is not null' for name in self._value_col_names)
+        filter_df = update_df.filter(filter_cond)
+        return filter_df
 
     def run(self):
         if self._has_second_key:
