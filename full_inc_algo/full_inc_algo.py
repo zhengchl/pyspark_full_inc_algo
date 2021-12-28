@@ -9,6 +9,8 @@ from full_inc_algo import type_generic
 
 
 class FullIncAlgo:
+    HISTOYR_COL_SUFFIX = 'history_'
+
     __slots__ = ['_inc_df', '_full_df', '_primary_key_col_names',
                  '_second_key_col_names', '_has_second_key', '_value_col_names',
                  '_value_type_map', '_full_history_times']
@@ -108,10 +110,10 @@ class FullIncAlgo:
             field_type = schema[name].dataType
             if self._has_second_key:
                 rtn_schema.append(
-                    f"`{name}_full_data` Map< string, Array< {hive_type_map[str(field_type)]} > >")
+                    f"`{name}_{FullIncAlgo.HISTOYR_COL_SUFFIX}` Map< string, Array< {hive_type_map[str(field_type)]} > >")
             else:
                 rtn_schema.append(
-                    f"`{name}_full_data` Array< {hive_type_map[str(field_type)]} >")
+                    f"`{name}_{FullIncAlgo.HISTOYR_COL_SUFFIX}` Array< {hive_type_map[str(field_type)]} >")
 
         return ',\n'.join(rtn_schema)
 
@@ -188,18 +190,20 @@ class FullIncAlgo:
             join_df = self._inc_df
             for name in self._value_col_names:
                 join_df = join_df.withColumn(
-                    f'{name}_full_data', funs.lit(None))
+                    f'{name}_{FullIncAlgo.HISTOYR_COL_SUFFIX}', funs.lit(None))
         else:
             join_df = self._full_df.join(
                 self._inc_df, on=self._primary_key_col_names, how='full')
 
         rtn_df = join_df
         for name in self._value_col_names:
+            tmp_col_name = f'tmp_{name}_{FullIncAlgo.HISTOYR_COL_SUFFIX}'
+            col_name = f'{name}_{FullIncAlgo.HISTOYR_COL_SUFFIX}'
             rtn_df = (rtn_df
-                      .withColumn(f'new_{name}_full_data',
-                                  update_row_udf(funs.col(f'{name}_full_data'), funs.col(name)))
-                      .drop(f'{name}_full_data')
-                      .withColumnRenamed(f'new_{name}_full_data', f'{name}_full_data')
+                      .withColumn(tmp_col_name,
+                                  update_row_udf(funs.col(col_name), funs.col(name)))
+                      .drop(col_name)
+                      .withColumnRenamed(tmp_col_name, col_name)
                       .cache()
                       )
         return rtn_df
@@ -222,7 +226,7 @@ class FullIncAlgo:
             join_df = group_df
             for name in self._value_col_names:
                 join_df = join_df.withColumn(
-                    f'{name}_full_data', funs.lit(None))
+                    f'{name}_{FullIncAlgo.HISTOYR_COL_SUFFIX}', funs.lit(None))
         else:
             join_df = self._full_df.join(
                 group_df, on=self._primary_key_col_names, how='full')
@@ -233,11 +237,13 @@ class FullIncAlgo:
         rtn_df = join_df
         for name in self._value_col_names:
             value_type = self._value_type_map[name]
+            tmp_col_name = f'tmp_{name}_{FullIncAlgo.HISTOYR_COL_SUFFIX}'
+            col_name = f'{name}_{FullIncAlgo.HISTOYR_COL_SUFFIX}'
             rtn_df = (rtn_df
-                      .withColumn(f'new_{name}_full_data', update_row_udf(
-                funs.col(f'{name}_full_data'), funs.col(name), funs.lit(value_type)))
-                      .drop(f'{name}_full_data')
-                      .withColumnRenamed(f'new_{name}_full_data', f'{name}_full_data')
+                      .withColumn(tmp_col_name, update_row_udf(
+                                  funs.col(col_name), funs.col(name), funs.lit(value_type)))
+                      .drop(col_name)
+                      .withColumnRenamed(tmp_col_name, col_name)
                       .cache()
                       )
         return rtn_df

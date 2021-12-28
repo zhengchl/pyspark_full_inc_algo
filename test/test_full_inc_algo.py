@@ -50,22 +50,22 @@ class TestFullIncAlgo(unittest.TestCase):
 
     def test_print_stat_table_schema(self):
         schema1 = "`uid` string,\n" + \
-                  "`num_full_data` Array< bigint >,\n" + \
-                  "`desc_full_data` Array< string >"
+                  "`num_history_` Array< bigint >,\n" + \
+                  "`desc_history_` Array< string >"
         algo1 = FullIncAlgo(self.day1_df, ['uid'], [], ['num', 'desc'], None)
         self.assertEqual(algo1.print_stat_table_schema(), schema1)
 
         schema2 = "`uid` string,\n" + \
                   "`rid` int,\n" + \
-                  "`num_full_data` Map< string, Array< bigint > >,\n" + \
-                  "`desc_full_data` Map< string, Array< string > >"
+                  "`num_history_` Map< string, Array< bigint > >,\n" + \
+                  "`desc_history_` Map< string, Array< string > >"
         algo2 = FullIncAlgo(self.day1_df, ['uid', 'rid'], [
             'did'], ['num', 'desc'], None)
         self.assertEqual(algo2.print_stat_table_schema(), schema2)
 
         schema3 = "`rid` int,\n" + \
-                  "`num_full_data` Map< string, Array< bigint > >,\n" + \
-                  "`desc_full_data` Map< string, Array< string > >"
+                  "`num_history_` Map< string, Array< bigint > >,\n" + \
+                  "`desc_history_` Map< string, Array< string > >"
         algo3 = FullIncAlgo(self.day1_df, ['rid'], [
             'uid', 'did'], ['num', 'desc'], None)
         self.assertEqual(algo3.print_stat_table_schema(), schema3)
