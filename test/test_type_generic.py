@@ -24,10 +24,10 @@ class TestTypeGeneric(unittest.TestCase):
         self.assertRaises(TypeError, type_generic.get_zero, args=[1, 's'])
 
     def test_str_2_value(self):
-        self.assertEqual(type_generic.str_2_value('113', 'int'), 113)
-        self.assertEqual(type_generic.str_2_value('113.1', 'float'), 113.1)
-        self.assertEqual(type_generic.str_2_value('113', 'str'), '113')
-        self.assertEqual(type_generic.str_2_value('113', 'bool'), True)
+        self.assertEqual(type_generic.str_2_value('113', 'IntegerType'), 113)
+        self.assertEqual(type_generic.str_2_value('113.1', 'FloatType'), 113.1)
+        self.assertEqual(type_generic.str_2_value('113', 'StringType'), '113')
+        self.assertEqual(type_generic.str_2_value('113', 'BooleanType'), True)
         self.assertEqual(type_generic.str_2_value('113', 'ag'), None)
 
 

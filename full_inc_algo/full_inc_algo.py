@@ -3,13 +3,13 @@ from functools import partial
 
 from pyspark.sql import functions as funs
 from pyspark.sql.dataframe import DataFrame
-from pyspark.sql.types import IntegerType, LongType, StringType, DoubleType, FloatType, BooleanType
+from pyspark.sql.types import ArrayType, IntegerType, LongType, StringType, DoubleType, FloatType, BooleanType, MapType
 
 from full_inc_algo import type_generic
 
 
 class FullIncAlgo:
-    HISTOYR_COL_SUFFIX = 'history_'
+    HISTORY_COL_SUFFIX = 'history_'
 
     __slots__ = ['_inc_df', '_full_df', '_primary_key_col_names',
                  '_second_key_col_names', '_has_second_key', '_value_col_names',
@@ -80,16 +80,9 @@ class FullIncAlgo:
     def _get_value_type(self) -> dict:
         value_type_map = {}
         schema = self._inc_df.schema
-        for name in self._value_col_names:
+        for name in itertools.chain(self._value_col_names, self._primary_key_col_names, self._second_key_col_names):
             field_type = schema[name].dataType
-            if isinstance(field_type, StringType):
-                value_type_map[name] = 'str'
-            elif isinstance(field_type, IntegerType) or isinstance(field_type, LongType):
-                value_type_map[name] = 'int'
-            elif isinstance(field_type, FloatType) or isinstance(field_type, DoubleType):
-                value_type_map[name] = 'float'
-            elif isinstance(field_type, BooleanType):
-                value_type_map[name] = 'bool'
+            value_type_map[name] = field_type.typeName()
         return value_type_map
 
     def print_stat_table_schema(self):
@@ -110,10 +103,10 @@ class FullIncAlgo:
             field_type = schema[name].dataType
             if self._has_second_key:
                 rtn_schema.append(
-                    f"`{name}_{FullIncAlgo.HISTOYR_COL_SUFFIX}` Map< string, Array< {hive_type_map[str(field_type)]} > >")
+                    f"`{name}_{FullIncAlgo.HISTORY_COL_SUFFIX}` Map< string, Array< {hive_type_map[str(field_type)]} > >")
             else:
                 rtn_schema.append(
-                    f"`{name}_{FullIncAlgo.HISTOYR_COL_SUFFIX}` Array< {hive_type_map[str(field_type)]} >")
+                    f"`{name}_{FullIncAlgo.HISTORY_COL_SUFFIX}` Array< {hive_type_map[str(field_type)]} >")
 
         return ',\n'.join(rtn_schema)
 
@@ -142,7 +135,8 @@ class FullIncAlgo:
     @staticmethod
     def _update_row_with_second_key(full: dict, inc_list: list, type_str: str,
                                     has_second_key: bool, full_history_times: int):
-        full, inc_list = FullIncAlgo._process_none(full, inc_list, has_second_key)
+        full, inc_list = FullIncAlgo._process_none(
+            full, inc_list, has_second_key)
 
         assert (isinstance(full, dict))
         for inc in inc_list:
@@ -183,22 +177,25 @@ class FullIncAlgo:
         return full
 
     def run_normal(self):
-        update_row = partial(FullIncAlgo._update_row_normal,
-                             has_second_key=self._has_second_key, full_history_times=self._full_history_times)
-        update_row_udf = funs.udf(update_row).asNondeterministic()
         if self._full_df is None:
             join_df = self._inc_df
             for name in self._value_col_names:
                 join_df = join_df.withColumn(
-                    f'{name}_{FullIncAlgo.HISTOYR_COL_SUFFIX}', funs.lit(None))
+                    f'{name}_{FullIncAlgo.HISTORY_COL_SUFFIX}', funs.lit(None))
         else:
             join_df = self._full_df.join(
                 self._inc_df, on=self._primary_key_col_names, how='full')
 
         rtn_df = join_df
         for name in self._value_col_names:
-            tmp_col_name = f'tmp_{name}_{FullIncAlgo.HISTOYR_COL_SUFFIX}'
-            col_name = f'{name}_{FullIncAlgo.HISTOYR_COL_SUFFIX}'
+            tmp_col_name = f'tmp_{name}_{FullIncAlgo.HISTORY_COL_SUFFIX}'
+            col_name = f'{name}_{FullIncAlgo.HISTORY_COL_SUFFIX}'
+            update_row = partial(FullIncAlgo._update_row_normal,
+                                 has_second_key=self._has_second_key, full_history_times=self._full_history_times)
+            update_row_udf = (funs.udf(update_row,
+                                       ArrayType(type_generic.str_2_spark_type(self._value_type_map[name]), True))
+                              .asNondeterministic())
+
             rtn_df = (rtn_df
                       .withColumn(tmp_col_name,
                                   update_row_udf(funs.col(col_name), funs.col(name)))
@@ -226,7 +223,7 @@ class FullIncAlgo:
             join_df = group_df
             for name in self._value_col_names:
                 join_df = join_df.withColumn(
-                    f'{name}_{FullIncAlgo.HISTOYR_COL_SUFFIX}', funs.lit(None))
+                    f'{name}_{FullIncAlgo.HISTORY_COL_SUFFIX}', funs.lit(None))
         else:
             join_df = self._full_df.join(
                 group_df, on=self._primary_key_col_names, how='full')
@@ -237,8 +234,8 @@ class FullIncAlgo:
         rtn_df = join_df
         for name in self._value_col_names:
             value_type = self._value_type_map[name]
-            tmp_col_name = f'tmp_{name}_{FullIncAlgo.HISTOYR_COL_SUFFIX}'
-            col_name = f'{name}_{FullIncAlgo.HISTOYR_COL_SUFFIX}'
+            tmp_col_name = f'tmp_{name}_{FullIncAlgo.HISTORY_COL_SUFFIX}'
+            col_name = f'{name}_{FullIncAlgo.HISTORY_COL_SUFFIX}'
             rtn_df = (rtn_df
                       .withColumn(tmp_col_name, update_row_udf(
                                   funs.col(col_name), funs.col(name), funs.lit(value_type)))
