@@ -145,11 +145,11 @@ class FullIncAlgo:
             else:
                 full[second_key] = [value]
 
-        for second_key, value_list in full:
+        for second_key, value_list in full.items():
             if len(value_list) > full_history_times:
                 full[second_key] = value_list[1:]
 
-        for second_key, value_list in full:
+        for second_key, value_list in full.items():
             if all(value is None for value in value_list):
                 del full[second_key]
 
@@ -211,8 +211,8 @@ class FullIncAlgo:
             concat_args = []
             for second_key in self._second_key_col_names:
                 concat_args.append(second_key)
-                concat_args.append(',')
-            concat_args[-1] = ':'
+                concat_args.append(funs.lit(','))
+            concat_args[-1] = funs.lit(':')
             concat_args.append(name)
             agg_args.append(funs.collect_list(
                 funs.concat(*concat_args)).alias(f'{name}_list'))
@@ -227,19 +227,24 @@ class FullIncAlgo:
         else:
             join_df = self._full_df.join(
                 group_df, on=self._primary_key_col_names, how='full')
-
-        update_row = partial(FullIncAlgo._update_row_with_second_key,
-                             has_second_key=self._has_second_key, full_history_times=self._full_history_times)
-        update_row_udf = funs.udf(update_row).asNondeterministic()
+        join_df.show()
         rtn_df = join_df
         for name in self._value_col_names:
             value_type = self._value_type_map[name]
             tmp_col_name = f'tmp_{name}_{FullIncAlgo.HISTORY_COL_SUFFIX}'
             col_name = f'{name}_{FullIncAlgo.HISTORY_COL_SUFFIX}'
+            tmp_list_col_name = f'{name}_list'
+
+            update_row = partial(FullIncAlgo._update_row_with_second_key,
+                                has_second_key=self._has_second_key, full_history_times=self._full_history_times)
+            update_row_udf = (funs.udf(update_row,
+                                       MapType(StringType(), ArrayType(type_generic.str_2_spark_type(value_type))))
+                                  .asNondeterministic())
+
             rtn_df = (rtn_df
                       .withColumn(tmp_col_name, update_row_udf(
-                                  funs.col(col_name), funs.col(name), funs.lit(value_type)))
-                      .drop(col_name)
+                                  funs.col(col_name), funs.col(tmp_list_col_name), funs.lit(value_type)))
+                      .drop(col_name, tmp_list_col_name)
                       .withColumnRenamed(tmp_col_name, col_name)
                       .cache()
                       )
