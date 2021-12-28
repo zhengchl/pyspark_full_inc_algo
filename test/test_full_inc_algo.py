@@ -106,28 +106,28 @@ class TestFullIncAlgo(unittest.TestCase):
                 ['dev3_1', [10301], ['day1_u3_h1']]]
         full_day1_day2 = [['dev1_1', [10101, 10101], ['day1_u1_h1', 'day2_u1_h1']],
                      ['dev1_2', [10102, 10102], ['day1_u1_h2', 'day2_u1_h2']],
-                     ['dev2_1', [10201, 0], ['day1_u2_h1', '']],
-                     ['dev2_2', [10202, 0], ['day1_u2_h2', '']],
+                     ['dev2_1', [10201, None], ['day1_u2_h1', None]],
+                     ['dev2_2', [10202, None], ['day1_u2_h2', None]],
                      ['dev3_1', [10301, 10301], ['day1_u3_h1', 'day2_u3_h1']],
                      ['dev3_2', [10302], ['day2_u3_h2']],
                      ['dev4_1', [10401], ['day2_u4_h1']],
                      ['dev4_2', [10402], ['day2_u4_h2']]]
-        full_day1_day2_day3 = [['dev1_1', [10101, 10101, 0], ['day1_u1_h1', 'day2_u1_h1', '']],
-                          ['dev1_2', [10102, 10102, 0], ['day1_u1_h2', 'day2_u1_h2', '']],
-                          ['dev2_1', [10201, 0, 10201], ['day1_u2_h1', '', 'day1_u2_h1']],
-                          ['dev2_2', [10202, 0, 0], ['day1_u2_h2', '', '']],
-                          ['dev3_1', [10301, 10301, 0], ['day1_u3_h1', 'day2_u3_h1', '']],
-                          ['dev3_2', [10302, 0], ['day2_u3_h2', '']],
-                          ['dev4_1', [10401, 0], ['day2_u4_h1', '']],
-                          ['dev4_2', [10402, 0], ['day2_u4_h2', '']]]
-        full_day2_day3 = [['dev1_1', [10101, 0], ['day2_u1_h1', '']],
-                     ['dev1_2', [10102, 0], ['day2_u1_h2', '']],
-                     ['dev2_1', [0, 10201], ['', 'day1_u2_h1']],
-                     ['dev2_2', [0, 0], ['', '']],
-                     ['dev3_1', [10301, 0], ['day2_u3_h1', '']],
-                     ['dev3_2', [0], ['']],
-                     ['dev4_1', [0], ['']],
-                     ['dev4_2', [0], ['']]]
+        full_day1_day2_day3 = [['dev1_1', [10101, 10101, None], ['day1_u1_h1', 'day2_u1_h1', None]],
+                          ['dev1_2', [10102, 10102, None], ['day1_u1_h2', 'day2_u1_h2', None]],
+                          ['dev2_1', [10201, None, 10201], ['day1_u2_h1', None, 'day1_u2_h1']],
+                          ['dev2_2', [10202, None, None], ['day1_u2_h2', None, None]],
+                          ['dev3_1', [10301, 10301, None], ['day1_u3_h1', 'day2_u3_h1', None]],
+                          ['dev3_2', [10302, None], ['day2_u3_h2', None]],
+                          ['dev4_1', [10401, None], ['day2_u4_h1', None]],
+                          ['dev4_2', [10402, None], ['day2_u4_h2', None]]]
+        full_day2_day3 = [['dev1_1', [10101, None], ['day2_u1_h1', None]],
+                     ['dev1_2', [10102, None], ['day2_u1_h2', None]],
+                     ['dev2_1', [None, 10201], [None, 'day1_u2_h1']],
+                     ['dev2_2', [None, None], [None, None]],
+                     ['dev3_1', [10301, None], ['day2_u3_h1', None]],
+                     ['dev3_2', [None], [None]],
+                     ['dev4_1', [None], [None]],
+                     ['dev4_2', [None], [None]]]
 
         schema = StructType([
             StructField('did', StringType(), True),
@@ -144,9 +144,9 @@ class TestFullIncAlgo(unittest.TestCase):
         real_full_day1.show()
         real_full_day1.printSchema()
         assert_pyspark_df_equal(real_full_day1, expected_full_day1_df, check_column_names=True)
-        # algo2 = FullIncAlgo(self.day2_df, ['did'], [], ['num', 'desc'], real_full_day1)
-        # real_full_day1_day2_df = algo2.run().select('did', 'num_history_', 'desc_history_')
-        # assert_pyspark_df_equal(real_full_day1_day2_df, expected_full_day1_day2_df, check_column_names = True)
+        algo2 = FullIncAlgo(self.day2_df, ['did'], [], ['num', 'desc'], real_full_day1)
+        real_full_day1_day2_df = algo2.run().select('did', 'num_history_', 'desc_history_')
+        assert_pyspark_df_equal(real_full_day1_day2_df, expected_full_day1_day2_df, check_column_names = True)
 
 
 if __name__ == '__main__':
