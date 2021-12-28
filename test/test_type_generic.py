@@ -1,6 +1,7 @@
 import unittest
 
-from acc_inc_algo import type_generic
+from full_inc_algo import type_generic
+
 
 class TestTypeGeneric(unittest.TestCase):
     def test_is_empty_info(self):
@@ -20,7 +21,7 @@ class TestTypeGeneric(unittest.TestCase):
         self.assertEqual(type_generic.get_zero('111'), '')
         self.assertEqual(type_generic.get_zero(True), False)
 
-        self.assertRaises(TypeError, type_generic.get_zero, args = [1, 's'])
+        self.assertRaises(TypeError, type_generic.get_zero, args=[1, 's'])
 
     def test_str_2_value(self):
         self.assertEqual(type_generic.str_2_value('113', 'int'), 113)
@@ -28,6 +29,7 @@ class TestTypeGeneric(unittest.TestCase):
         self.assertEqual(type_generic.str_2_value('113', 'str'), '113')
         self.assertEqual(type_generic.str_2_value('113', 'bool'), True)
         self.assertEqual(type_generic.str_2_value('113', 'ag'), None)
+
 
 if __name__ == '__main__':
     unittest.main()

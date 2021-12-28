@@ -5,22 +5,22 @@ from pyspark.sql import functions as funs
 from pyspark.sql.dataframe import DataFrame
 from pyspark.sql.types import IntegerType, LongType, StringType, DoubleType, FloatType, BooleanType
 
-from acc_inc_algo import type_generic
+from full_inc_algo import type_generic
 
 
-class AccIncAlgo:
-    __slots__ = ['_inc_df', '_acc_df', '_primary_key_col_names',
+class FullIncAlgo:
+    __slots__ = ['_inc_df', '_full_df', '_primary_key_col_names',
                  '_second_key_col_names', '_has_second_key', '_value_col_names',
-                 '_value_type_map', '_acc_times']
+                 '_value_type_map', '_full_history_times']
 
     def __init__(self,
                  inc_df: DataFrame,
                  primary_key_col_names: list, second_key_col_names: list, value_col_names: list,
-                 acc_df: DataFrame = None,
-                 acc_times: int = 30):
-        self._acc_times = acc_times
+                 full_df: DataFrame = None,
+                 full_history_times: int = 30):
+        self._full_history_times = full_history_times
         self._inc_df = inc_df
-        self._acc_df = acc_df
+        self._full_df = full_df
         self._primary_key_col_names = primary_key_col_names
         self._second_key_col_names = second_key_col_names
         self._has_second_key = True if len(second_key_col_names) > 0 else False
@@ -108,97 +108,98 @@ class AccIncAlgo:
             field_type = schema[name].dataType
             if self._has_second_key:
                 rtn_schema.append(
-                    f"`{name}_acc_data` Map< string, Array< {hive_type_map[str(field_type)]} > >")
+                    f"`{name}_full_data` Map< string, Array< {hive_type_map[str(field_type)]} > >")
             else:
                 rtn_schema.append(
-                    f"`{name}_acc_data` Array< {hive_type_map[str(field_type)]} >")
+                    f"`{name}_full_data` Array< {hive_type_map[str(field_type)]} >")
 
         return ',\n'.join(rtn_schema)
 
     @staticmethod
-    def _process_none(acc, inc, has_secend_key):
-        assert (not (acc is None and inc is None))
-        rtn_acc = acc
+    def _process_none(full, inc, has_second_key):
+        assert (not (full is None and inc is None))
+        rtn_full = full
         rtn_inc = inc
 
-        if rtn_acc is None:
-            if has_secend_key:
-                rtn_acc = {}
+        if rtn_full is None:
+            if has_second_key:
+                rtn_full = {}
             else:
-                rtn_acc = []
+                rtn_full = []
 
         if rtn_inc is None:
-            if has_secend_key:
-                infer_value = next(iter(rtn_acc))
+            if has_second_key:
+                infer_value = next(iter(rtn_full))
                 rtn_inc = list(type_generic.get_zero(infer_value))
             else:
-                infer_value = rtn_acc[0]
+                infer_value = rtn_full[0]
                 rtn_inc = type_generic.get_zero(infer_value)
 
-        return rtn_acc, rtn_inc
+        return rtn_full, rtn_inc
 
     @staticmethod
-    def _update_row_with_second_key(acc: dict, inc_list: list, type_str: str,
-                                    has_secend_key: bool, acc_times: int):
-        acc, inc_list = AccIncAlgo._process_none(acc, inc_list, has_secend_key)
+    def _update_row_with_second_key(full: dict, inc_list: list, type_str: str,
+                                    has_second_key: bool, full_history_times: int):
+        full, inc_list = FullIncAlgo._process_none(full, inc_list, has_second_key)
 
-        assert (isinstance(acc, dict))
+        assert (isinstance(full, dict))
         for inc in inc_list:
             loc = inc.rfind(':')
             second_key = inc[: loc]
             value = type_generic.str_2_value(inc[loc + 1:], type_str)
-            if second_key in acc:
-                acc[second_key].append(value)
+            if second_key in full:
+                full[second_key].append(value)
             else:
-                acc[second_key] = [value]
+                full[second_key] = [value]
 
-        for second_key, value_list in acc:
-            if len(value_list) > acc_times:
-                acc[second_key] = value_list[1:]
+        for second_key, value_list in full:
+            if len(value_list) > full_history_times:
+                full[second_key] = value_list[1:]
 
-        for second_key, value_list in acc:
+        for second_key, value_list in full:
             if type_generic.is_empty_info(value_list):
-                del acc[second_key]
+                del full[second_key]
 
-        if len(acc) == 0:
+        if len(full) == 0:
             return None
 
-        return acc
+        return full
 
     @staticmethod
-    def _update_row_normal(acc: list, inc,
-                           has_second_key: bool, acc_times: int):
-        acc, inc = AccIncAlgo._process_none(acc, inc, has_second_key)
+    def _update_row_normal(full: list, inc,
+                           has_second_key: bool, full_history_times: int):
+        full, inc = FullIncAlgo._process_none(full, inc, has_second_key)
 
-        assert (isinstance(acc, list))
-        acc.append(inc)
-        if len(acc) > acc_times:
-            acc = acc[1:]
+        assert (isinstance(full, list))
+        full.append(inc)
+        if len(full) > full_history_times:
+            full = full[1:]
 
-        if type_generic.is_empty_info(acc):
+        if type_generic.is_empty_info(full):
             return None
 
-        return acc
+        return full
 
     def run_normal(self):
-        update_row = partial(AccIncAlgo._update_row_normal,
-                             has_secend_key=self._has_second_key, acc_times=self._acc_times)
+        update_row = partial(FullIncAlgo._update_row_normal,
+                             has_second_key=self._has_second_key, full_history_times=self._full_history_times)
         update_row_udf = funs.udf(update_row).asNondeterministic()
-        if self._acc_df is None:
+        if self._full_df is None:
             join_df = self._inc_df
             for name in self._value_col_names:
                 join_df = join_df.withColumn(
-                    f'{name}_acc_data', funs.lit(None))
+                    f'{name}_full_data', funs.lit(None))
         else:
-            join_df = self._acc_df.join(
+            join_df = self._full_df.join(
                 self._inc_df, on=self._primary_key_col_names, how='full')
 
         rtn_df = join_df
         for name in self._value_col_names:
             rtn_df = (rtn_df
-                      .withColumn(f'new_{name}_acc_data', update_row_udf(funs.col(f'{name}_acc_data'), funs.col(name)))
-                      .drop(f'{name}_acc_data')
-                      .withColumnRenamed(f'new_{name}_acc_data', f'{name}_acc_data')
+                      .withColumn(f'new_{name}_full_data',
+                                  update_row_udf(funs.col(f'{name}_full_data'), funs.col(name)))
+                      .drop(f'{name}_full_data')
+                      .withColumnRenamed(f'new_{name}_full_data', f'{name}_full_data')
                       .cache()
                       )
         return rtn_df
@@ -217,26 +218,26 @@ class AccIncAlgo:
         group_df = self._inc_df.groupBy(
             self._primary_key_col_names).agg(*agg_args)
 
-        if self._acc_df is None:
+        if self._full_df is None:
             join_df = group_df
             for name in self._value_col_names:
                 join_df = join_df.withColumn(
-                    f'{name}_acc_data', funs.lit(None))
+                    f'{name}_full_data', funs.lit(None))
         else:
-            join_df = self._acc_df.join(
+            join_df = self._full_df.join(
                 group_df, on=self._primary_key_col_names, how='full')
 
-        update_row = partial(AccIncAlgo._update_row_with_second_key,
-                             has_secend_key=self._has_second_key, acc_times=self._acc_times)
+        update_row = partial(FullIncAlgo._update_row_with_second_key,
+                             has_second_key=self._has_second_key, full_history_times=self._full_history_times)
         update_row_udf = funs.udf(update_row).asNondeterministic()
         rtn_df = join_df
         for name in self._value_col_names:
             value_type = self._value_type_map[name]
             rtn_df = (rtn_df
-                      .withColumn(f'new_{name}_acc_data', update_row_udf(
-                funs.col(f'{name}_acc_data'), funs.col(name), funs.lit(value_type)))
-                      .drop(f'{name}_acc_data')
-                      .withColumnRenamed(f'new_{name}_acc_data', f'{name}_acc_data')
+                      .withColumn(f'new_{name}_full_data', update_row_udf(
+                funs.col(f'{name}_full_data'), funs.col(name), funs.lit(value_type)))
+                      .drop(f'{name}_full_data')
+                      .withColumnRenamed(f'new_{name}_full_data', f'{name}_full_data')
                       .cache()
                       )
         return rtn_df

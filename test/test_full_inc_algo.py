@@ -1,11 +1,12 @@
 import unittest
 from pyspark.sql import SparkSession
-from pyspark.sql.types import ArrayType, BooleanType, DoubleType, FloatType, StructType, StringType, IntegerType, StructField, LongType, MapType
+from pyspark.sql.types import ArrayType, BooleanType, DoubleType, FloatType, StructType, StringType, IntegerType, \
+    StructField, LongType, MapType
 
-from acc_inc_algo import AccIncAlgo
+from full_inc_algo import FullIncAlgo
 
 
-class TestAccIncAlgo(unittest.TestCase):
+class TestFullIncAlgo(unittest.TestCase):
     def setUp(self) -> None:
         day1 = [['user1', 101, 'dev1_1', 10101, 'day1_u1_h1'],
                 ['user1', 102, 'dev1_2', 10102, 'day1_u1_h2'],
@@ -48,52 +49,56 @@ class TestAccIncAlgo(unittest.TestCase):
         self.type_df = self.sc.emptyRDD().toDF(type_schema)
 
     def test_print_stat_table_schema(self):
-        schema1 = "`uid` string,\n" +\
-                  "`num_acc_data` Array< bigint >,\n" +\
-                  "`desc_acc_data` Array< string >"
-        algo1 = AccIncAlgo(self.day1_df, ['uid'], [], ['num', 'desc'], None)
+        schema1 = "`uid` string,\n" + \
+                  "`num_full_data` Array< bigint >,\n" + \
+                  "`desc_full_data` Array< string >"
+        algo1 = FullIncAlgo(self.day1_df, ['uid'], [], ['num', 'desc'], None)
         self.assertEqual(algo1.print_stat_table_schema(), schema1)
 
-        schema2 = "`uid` string,\n" +\
-                  "`rid` int,\n" +\
-                  "`num_acc_data` Map< string, Array< bigint > >,\n" +\
-                  "`desc_acc_data` Map< string, Array< string > >"
-        algo2 = AccIncAlgo(self.day1_df, ['uid', 'rid'], [
-                           'did'], ['num', 'desc'], None)
+        schema2 = "`uid` string,\n" + \
+                  "`rid` int,\n" + \
+                  "`num_full_data` Map< string, Array< bigint > >,\n" + \
+                  "`desc_full_data` Map< string, Array< string > >"
+        algo2 = FullIncAlgo(self.day1_df, ['uid', 'rid'], [
+            'did'], ['num', 'desc'], None)
         self.assertEqual(algo2.print_stat_table_schema(), schema2)
 
-        schema3 = "`rid` int,\n" +\
-                  "`num_acc_data` Map< string, Array< bigint > >,\n" +\
-                  "`desc_acc_data` Map< string, Array< string > >"
-        algo3 = AccIncAlgo(self.day1_df, ['rid'], [
-                           'uid', 'did'], ['num', 'desc'], None)
+        schema3 = "`rid` int,\n" + \
+                  "`num_full_data` Map< string, Array< bigint > >,\n" + \
+                  "`desc_full_data` Map< string, Array< string > >"
+        algo3 = FullIncAlgo(self.day1_df, ['rid'], [
+            'uid', 'did'], ['num', 'desc'], None)
         self.assertEqual(algo3.print_stat_table_schema(), schema3)
 
     def test_check_col_names(self):
-        self.assertRaises(ValueError, AccIncAlgo,
+        self.assertRaises(ValueError, FullIncAlgo,
                           inc_df=self.day1_df, primary_key_col_names=[
-                              'rid', 'rid'],
+                'rid', 'rid'],
                           second_key_col_names=['uid', 'did'], value_col_names=['num', 'desc'])
-        self.assertRaises(ValueError, AccIncAlgo,
+        self.assertRaises(ValueError, FullIncAlgo,
                           inc_df=self.day1_df, primary_key_col_names=[
-                              'rid', 'uid'],
+                'rid', 'uid'],
                           second_key_col_names=['uid', 'did'], value_col_names=['num', 'desc'])
-        self.assertRaises(ValueError, AccIncAlgo,
+        self.assertRaises(ValueError, FullIncAlgo,
                           inc_df=self.day1_df, primary_key_col_names=['rid'],
                           second_key_col_names=['uid', 'did'], value_col_names=['did', 'num', 'desc'])
 
     def test_check_schema(self):
-        self.assertRaises(TypeError, AccIncAlgo,
+        self.assertRaises(TypeError, FullIncAlgo,
                           inc_df=self.type_df, primary_key_col_names=[
-                              'map_field'],
+                'map_field'],
                           second_key_col_names=[], value_col_names=[])
-        self.assertRaises(TypeError, AccIncAlgo,
+        self.assertRaises(TypeError, FullIncAlgo,
                           inc_df=self.type_df, primary_key_col_names=[
-                              'int_field'],
+                'int_field'],
                           second_key_col_names=['float_field'], value_col_names=[])
-        AccIncAlgo(inc_df=self.type_df, primary_key_col_names=[
+        FullIncAlgo(inc_df=self.type_df, primary_key_col_names=[
             'int_field'],
-                   second_key_col_names=['bigint_field'], value_col_names=['float_field'])
+                    second_key_col_names=['bigint_field'], value_col_names=['float_field'])
 
     def test_run_normal(self):
         pass
+
+
+if __name__ == '__main__':
+    unittest.main()
