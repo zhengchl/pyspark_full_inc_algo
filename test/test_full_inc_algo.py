@@ -253,6 +253,132 @@ class TestFullIncAlgo(unittest.TestCase):
         assert_pyspark_df_equal(
             real_full_day2_day3, expected_full_day2_day3_df, check_column_names=True, order_by=['uid'])
 
+    def test_run_normal_add_remove_col(self):
+        """测试新增和删除统计列"""
+        # fmt: off
+        full_day1 = [['dev1_1', [10101]],
+                     ['dev1_2', [10102]],
+                     ['dev2_1', [10201]],
+                     ['dev2_2', [10202]],
+                     ['dev3_1', [10301]]]
+        full_day1_day2 = [['dev1_1', [10101, 10101], ['day2_u1_h1']],
+                          ['dev1_2', [10102, 10102], ['day2_u1_h2']],
+                          ['dev2_1', [10201, None], None],
+                          ['dev2_2', [10202, None], None],
+                          ['dev3_1', [10301, 10301], ['day2_u3_h1']],
+                          ['dev3_2', None, ['day2_u3_h2']],
+                          ['dev4_1', [10401], ['day2_u4_h1']],
+                          ['dev4_2', [10402], ['day2_u4_h2']]]
+        full_day1_day2_day3 = [['dev1_1', [10101, 10101], ['day2_u1_h1', None]],
+                               ['dev1_2', [10102, 10102], ['day2_u1_h2', None]],
+                               ['dev2_1', [10201, None], ['day1_u2_h1']],
+                               ['dev3_1', [10301, 10301], ['day2_u3_h1', None]],
+                               ['dev3_2', None, ['day2_u3_h2', None]],
+                               ['dev4_1', [10401], ['day2_u4_h1', None]],
+                               ['dev4_2', [10402], ['day2_u4_h2', None]]]
+        # fmt: on
+
+        schema1 = StructType([
+            StructField('did', StringType(), True),
+            StructField(f'num_{FullIncAlgo.HISTORY_COL_SUFFIX}',
+                        ArrayType(LongType()), True)
+        ])
+        schema2 = StructType([
+            StructField('did', StringType(), True),
+            StructField(f'num_{FullIncAlgo.HISTORY_COL_SUFFIX}',
+                        ArrayType(LongType()), True),
+            StructField(f'desc_{FullIncAlgo.HISTORY_COL_SUFFIX}',
+                        ArrayType(StringType()), True)
+        ])
+        expected_full_day1_df = self.sc.parallelize(full_day1).toDF(schema1)
+        expected_full_day1_day2_df = self.sc.parallelize(
+            full_day1_day2).toDF(schema2)
+        expected_full_day1_day2_day3_df = self.sc.parallelize(
+            full_day1_day2_day3).toDF(schema2)
+
+        algo1 = FullIncAlgo(self.day1_df, ['did'], [], ['num'], None)
+        real_full_day1 = algo1.run().select('did', 'num_history_')
+        assert_pyspark_df_equal(
+            real_full_day1, expected_full_day1_df, check_column_names=True)
+
+        algo2 = FullIncAlgo(self.day2_df, ['did'], [], [
+                            'num', 'desc'], real_full_day1)
+        real_full_day1_day2_df = algo2.run().select(
+            'did', 'num_history_', 'desc_history_')
+        assert_pyspark_df_equal(
+            real_full_day1_day2_df, expected_full_day1_day2_df, check_column_names=True, order_by=['did'])
+
+        algo3 = FullIncAlgo(self.day3_df, ['did'], [], [
+                            'desc'], real_full_day1_day2_df)
+        real_full_day1_day2_day3_df = algo3.run().select(
+            'did', 'num_history_', 'desc_history_')
+        assert_pyspark_df_equal(real_full_day1_day2_day3_df,
+                                expected_full_day1_day2_day3_df, check_column_names=True, order_by=['did'])
+
+    def test_run_with_second_key_add_remove_col(self):
+        # fmt: off
+        full_day1 = [['user1', {'101,dev1_1': [10101], '102,dev1_2': [10102]}],
+                     ['user2', {'201,dev2_1': [10201], '202,dev2_2': [10202]}],
+                     ['user3', {'301,dev3_1': [10301]}]
+                     ]
+        full_day1_day2 = [['user1', {'101,dev1_1': [10101, 10101], '102,dev1_2': [10102, 10102]},
+                           {'101,dev1_1': ['day2_u1_h1'], '102,dev1_2': ['day2_u1_h2']}],
+                          ['user2', {'201,dev2_1': [10201, None], '202,dev2_2': [10202, None]},
+                           None],
+                          ['user3', {'301,dev3_1': [10301, 10301]},
+                           {'301,dev3_1': ['day2_u3_h1'], '302,dev3_2': ['day2_u3_h2']}],
+                          ['user4', {'401,dev4_1': [10401], '402,dev4_2': [10402]},
+                           {'401,dev4_1': ['day2_u4_h1'], '402,dev4_2': ['day2_u4_h2']}],
+                          ]
+
+        full_day1_day2_day3 = [['user1', {'101,dev1_1': [10101, 10101], '102,dev1_2': [10102, 10102]},
+                                {'101,dev1_1': ['day2_u1_h1', None], '102,dev1_2': ['day2_u1_h2', None]}],
+                               ['user2', {'201,dev2_1': [10201, None], '202,dev2_2': [10202, None]},
+                                {'201,dev2_1': ['day1_u2_h1']}],
+                               ['user3', {'301,dev3_1': [10301, 10301]},
+                                {'301,dev3_1': ['day2_u3_h1', None], '302,dev3_2': ['day2_u3_h2', None]}],
+                               ['user4', {'401,dev4_1': [10401], '402,dev4_2': [10402]},
+                                {'401,dev4_1': ['day2_u4_h1', None], '402,dev4_2': ['day2_u4_h2', None]}],
+                               ]
+        # fmt: on
+
+        schema1 = StructType([
+            StructField('uid', StringType(), True),
+            StructField(f'num_{FullIncAlgo.HISTORY_COL_SUFFIX}',
+                        MapType(StringType(), ArrayType(LongType())), True)
+        ])
+        schema2 = StructType([
+            StructField('uid', StringType(), True),
+            StructField(f'num_{FullIncAlgo.HISTORY_COL_SUFFIX}',
+                        MapType(StringType(), ArrayType(LongType())), True),
+            StructField(f'desc_{FullIncAlgo.HISTORY_COL_SUFFIX}',
+                        MapType(StringType(), ArrayType(StringType())), True)
+        ])
+        expected_full_day1_df = self.sc.parallelize(full_day1).toDF(schema1)
+        expected_full_day1_day2_df = self.sc.parallelize(
+            full_day1_day2).toDF(schema2)
+        expected_full_day1_day2_day3_df = self.sc.parallelize(
+            full_day1_day2_day3).toDF(schema2)
+
+        algo1 = FullIncAlgo(self.day1_df, ['uid'], [
+                            'rid', 'did'], ['num'], None)
+        real_full_day1 = algo1.run().select('uid', 'num_history_')
+        assert_pyspark_df_equal(
+            real_full_day1, expected_full_day1_df, check_column_names=True, order_by=['uid'])
+
+        algo2 = FullIncAlgo(self.day2_df, ['uid'], ['rid', 'did'], [
+                            'num', 'desc'], real_full_day1)
+        real_full_day1_day2 = algo2.run().select(
+            'uid', 'num_history_', 'desc_history_')
+        assert_pyspark_df_equal(
+            real_full_day1_day2, expected_full_day1_day2_df, check_column_names=True, order_by=['uid'])
+
+        algo3 = FullIncAlgo(self.day3_df, ['uid'], ['rid', 'did'], ['desc'], real_full_day1_day2)
+        real_full_day1_day2_day3 = algo3.run().select(
+            'uid', 'num_history_', 'desc_history_')
+        assert_pyspark_df_equal(
+            real_full_day1_day2_day3, expected_full_day1_day2_day3_df, check_column_names=True, order_by=['uid'])
+
 
 if __name__ == '__main__':
     unittest.main()

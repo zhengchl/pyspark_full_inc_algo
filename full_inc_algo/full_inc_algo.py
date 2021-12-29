@@ -186,13 +186,21 @@ class FullIncAlgo:
 
     def run_normal(self):
         if self._full_df is None:
+            # 任务第一次执行，全量数据此时为空
             join_df = self._inc_df
             for name in self._value_col_names:
                 join_df = join_df.withColumn(
                     f'{name}_{FullIncAlgo.HISTORY_COL_SUFFIX}', funs.lit(None))
         else:
+            # 任务并非第一次执行，关联全量和增量数据
             join_df = self._full_df.join(
                 self._inc_df, on=self._primary_key_col_names, how='full')
+
+        # 新增一个统计列
+        for name in self._value_col_names:
+            new_col_name = f'{name}_{FullIncAlgo.HISTORY_COL_SUFFIX}'
+            if new_col_name not in join_df.schema.fieldNames():
+                join_df = join_df.withColumn(new_col_name, funs.lit(None))
 
         update_df = join_df
         for name in self._value_col_names:
@@ -239,6 +247,12 @@ class FullIncAlgo:
         else:
             join_df = self._full_df.join(
                 group_df, on=self._primary_key_col_names, how='full')
+
+        # 新增一个统计列
+        for name in self._value_col_names:
+            new_col_name = f'{name}_{FullIncAlgo.HISTORY_COL_SUFFIX}'
+            if new_col_name not in join_df.schema.fieldNames():
+                join_df = join_df.withColumn(new_col_name, funs.lit(None))
 
         update_df = join_df
         for name in self._value_col_names:
