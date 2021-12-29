@@ -239,7 +239,6 @@ class FullIncAlgo:
         else:
             join_df = self._full_df.join(
                 group_df, on=self._primary_key_col_names, how='full')
-        join_df.show()
 
         update_df = join_df
         for name in self._value_col_names:

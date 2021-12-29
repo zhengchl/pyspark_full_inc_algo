@@ -22,7 +22,7 @@ class TestFullIncAlgo(unittest.TestCase):
                 ['user4', 401, 'dev4_1', 10401, 'day2_u4_h1'],
                 ['user4', 402, 'dev4_2', 10402, 'day2_u4_h2']]
         day3 = [['user2', 201, 'dev2_1', 10201, 'day1_u2_h1'],
-                ['user3', 302, 'dev3_2', 10302, None],]
+                ['user3', 302, 'dev3_2', 10302, None], ]
 
         self.spark = SparkSession.builder.enableHiveSupport().getOrCreate()
         self.sc = self.spark.sparkContext
@@ -122,14 +122,14 @@ class TestFullIncAlgo(unittest.TestCase):
                                    ['day1_u2_h2', None, None]],
                                ['dev3_1', [10301, 10301, None], [
                                    'day1_u3_h1', 'day2_u3_h1', None]],
-                               ['dev3_2', None, ['day2_u3_h2', None]],
+                               ['dev3_2', [10302], ['day2_u3_h2', None]],
                                ['dev4_1', [10401, None], ['day2_u4_h1', None]],
                                ['dev4_2', [10402, None], ['day2_u4_h2', None]]]
         full_day2_day3 = [['dev1_1', [10101, None], ['day2_u1_h1', None]],
                           ['dev1_2', [10102, None], ['day2_u1_h2', None]],
                           ['dev2_1', [None, 10201], [None, 'day1_u2_h1']],
                           ['dev3_1', [10301, None], ['day2_u3_h1', None]],
-                          ['dev3_2', None, ['day2_u3_h2', None]],
+                          ['dev3_2', [10302], ['day2_u3_h2', None]],
                           ['dev4_1', [10401, None], ['day2_u4_h1', None]],
                           ['dev4_2', [10402, None], ['day2_u4_h2', None]]]
 
@@ -175,20 +175,6 @@ class TestFullIncAlgo(unittest.TestCase):
             real_full_day2_day3_df, expected_full_day2_day3_df, check_column_names=True, order_by=['did'])
 
     def test_run_with_second_key(self):
-        day1 = [['user1', 101, 'dev1_1', 10101, 'day1_u1_h1'],
-                ['user1', 102, 'dev1_2', 10102, 'day1_u1_h2'],
-                ['user2', 201, 'dev2_1', 10201, 'day1_u2_h1'],
-                ['user2', 202, 'dev2_2', 10202, 'day1_u2_h2'],
-                ['user3', 301, 'dev3_1', 10301, 'day1_u3_h1']]
-        day2 = [['user1', 101, 'dev1_1', 10101, 'day2_u1_h1'],
-                ['user1', 102, 'dev1_2', 10102, 'day2_u1_h2'],
-                ['user3', 301, 'dev3_1', 10301, 'day2_u3_h1'],
-                ['user3', 302, 'dev3_2', None, 'day2_u3_h2'],
-                ['user4', 401, 'dev4_1', 10401, 'day2_u4_h1'],
-                ['user4', 402, 'dev4_2', 10402, 'day2_u4_h2']]
-        day3 = [['user2', 201, 'dev2_1', 10201, 'day1_u2_h1'],
-                ['user3', 302, 'dev3_2', 10302, 'day3_u3_h2'],]
-
         full_day1 = [['user1', {'101,dev1_1': [10101], '102,dev1_2': [10102]},
                       {'101,dev1_1': ['day1_u1_h1'], '102,dev1_2': ['day1_u1_h2']}],
                      ['user2', {'201,dev2_1': [10201], '202,dev2_2': [10202]},
@@ -207,14 +193,14 @@ class TestFullIncAlgo(unittest.TestCase):
                           ]
 
         full_day1_day2_day3 = [['user1', {'101,dev1_1': [10101, 10101, None], '102,dev1_2': [10102, 10102, None]},
-                           {'101,dev1_1': ['day1_u1_h1', 'day2_u1_h1', None], '102,dev1_2': ['day1_u1_h2', 'day2_u1_h2', None]}],
-                          ['user2', {'201,dev2_1': [10201, None, 10201], '202,dev2_2': [10202, None, None]},
-                           {'201,dev2_1': ['day1_u2_h1', None, 'day1_u2_h1'], '202,dev2_2': ['day1_u2_h2', None, None]}],
-                          ['user3', {'301,dev3_1': [10301, 10301, None], '302,dev3_2': [10302]},
-                           {'301,dev3_1': ['day1_u3_h1', 'day2_u3_h1', None], '302,dev3_2': ['day2_u3_h2', None]}],
-                          ['user4', {'401,dev4_1': [10401, None], '402,dev4_2': [10402, None]},
-                           {'401,dev4_1': ['day2_u4_h1', None], '402,dev4_2': ['day2_u4_h2', None]}],
-                          ]
+                                {'101,dev1_1': ['day1_u1_h1', 'day2_u1_h1', None], '102,dev1_2': ['day1_u1_h2', 'day2_u1_h2', None]}],
+                               ['user2', {'201,dev2_1': [10201, None, 10201], '202,dev2_2': [10202, None, None]},
+                                {'201,dev2_1': ['day1_u2_h1', None, 'day1_u2_h1'], '202,dev2_2': ['day1_u2_h2', None, None]}],
+                               ['user3', {'301,dev3_1': [10301, 10301, None], '302,dev3_2': [10302]},
+                                {'301,dev3_1': ['day1_u3_h1', 'day2_u3_h1', None], '302,dev3_2': ['day2_u3_h2', None]}],
+                               ['user4', {'401,dev4_1': [10401, None], '402,dev4_2': [10402, None]},
+                                {'401,dev4_1': ['day2_u4_h1', None], '402,dev4_2': ['day2_u4_h2', None]}],
+                               ]
         full_day2_day3 = [['user1', {'101,dev1_1': [10101, None], '102,dev1_2': [10102, None]},
                            {'101,dev1_1': ['day2_u1_h1', None], '102,dev1_2': ['day2_u1_h2', None]}],
                           ['user2', {'201,dev2_1': [None, 10201]},
@@ -266,6 +252,7 @@ class TestFullIncAlgo(unittest.TestCase):
             'uid', 'num_history_', 'desc_history_')
         assert_pyspark_df_equal(
             real_full_day2_day3, expected_full_day2_day3_df, check_column_names=True, order_by=['uid'])
+
 
 if __name__ == '__main__':
     unittest.main()
