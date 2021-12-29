@@ -9,6 +9,7 @@ spark_type_name_map = {
     'BooleanType': BooleanType().typeName()
 }
 
+
 def str_2_value(value, type_str):
     if type_str == spark_type_name_map['IntegerType'] or type_str == spark_type_name_map['LongType']:
         return int(value)

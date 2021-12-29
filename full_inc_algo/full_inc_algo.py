@@ -20,6 +20,15 @@ class FullIncAlgo:
                  primary_key_col_names: list, second_key_col_names: list, value_col_names: list,
                  full_df: DataFrame = None,
                  full_history_times: int = 30):
+        """
+        Parameters:
+            inc_df: DataFrame of increment data
+            primary_key_col_names: 
+            second_key_col_names: 
+            value_col_names: 
+            full_df: 
+            full_history_times: drop data before full_history_times
+        """
         self._full_history_times = full_history_times
         self._inc_df = inc_df
         self._full_df = full_df
@@ -184,7 +193,7 @@ class FullIncAlgo:
 
         return full
 
-    def run_normal(self):
+    def _run_normal(self):
         if self._full_df is None:
             # 任务第一次执行，全量数据此时为空
             join_df = self._inc_df
@@ -225,7 +234,7 @@ class FullIncAlgo:
         filter_df = update_df.filter(filter_cond)
         return filter_df
 
-    def run_with_second_key(self):
+    def _run_with_second_key(self):
         agg_args = []
         for name in self._value_col_names:
             concat_args = []
@@ -240,11 +249,13 @@ class FullIncAlgo:
             self._primary_key_col_names).agg(*agg_args)
 
         if self._full_df is None:
+            # 任务第一次执行，全量数据此时为空
             join_df = group_df
             for name in self._value_col_names:
                 join_df = join_df.withColumn(
                     f'{name}_{FullIncAlgo.HISTORY_COL_SUFFIX}', funs.lit(None))
         else:
+            # 任务并非第一次执行，关联全量和增量数据
             join_df = self._full_df.join(
                 group_df, on=self._primary_key_col_names, how='full')
 
@@ -281,6 +292,6 @@ class FullIncAlgo:
 
     def run(self):
         if self._has_second_key:
-            return self.run_with_second_key()
+            return self._run_with_second_key()
 
-        return self.run_normal()
+        return self._run_normal()
