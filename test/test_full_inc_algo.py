@@ -21,7 +21,8 @@ class TestFullIncAlgo(unittest.TestCase):
                 ['user3', 302, 'dev3_2', None, 'day2_u3_h2'],
                 ['user4', 401, 'dev4_1', 10401, 'day2_u4_h1'],
                 ['user4', 402, 'dev4_2', 10402, 'day2_u4_h2']]
-        day3 = [['user2', 201, 'dev2_1', 10201, 'day1_u2_h1']]
+        day3 = [['user2', 201, 'dev2_1', 10201, 'day1_u2_h1'],
+                ['user3', 302, 'dev3_2', 10302, None],]
 
         self.spark = SparkSession.builder.enableHiveSupport().getOrCreate()
         self.sc = self.spark.sparkContext
@@ -185,7 +186,8 @@ class TestFullIncAlgo(unittest.TestCase):
                 ['user3', 302, 'dev3_2', None, 'day2_u3_h2'],
                 ['user4', 401, 'dev4_1', 10401, 'day2_u4_h1'],
                 ['user4', 402, 'dev4_2', 10402, 'day2_u4_h2']]
-        day3 = [['user2', 201, 'dev2_1', 10201, 'day1_u2_h1']]
+        day3 = [['user2', 201, 'dev2_1', 10201, 'day1_u2_h1'],
+                ['user3', 302, 'dev3_2', 10302, 'day3_u3_h2'],]
 
         full_day1 = [['user1', {'101,dev1_1': [10101], '102,dev1_2': [10102]},
                       {'101,dev1_1': ['day1_u1_h1'], '102,dev1_2': ['day1_u1_h2']}],
@@ -194,6 +196,35 @@ class TestFullIncAlgo(unittest.TestCase):
                      ['user3', {'301,dev3_1': [10301]},
                       {'301,dev3_1': ['day1_u3_h1']}],
                      ]
+        full_day1_day2 = [['user1', {'101,dev1_1': [10101, 10101], '102,dev1_2': [10102, 10102]},
+                           {'101,dev1_1': ['day1_u1_h1', 'day2_u1_h1'], '102,dev1_2': ['day1_u1_h2', 'day2_u1_h2']}],
+                          ['user2', {'201,dev2_1': [10201, None], '202,dev2_2': [10202, None]},
+                           {'201,dev2_1': ['day1_u2_h1', None], '202,dev2_2': ['day1_u2_h2', None]}],
+                          ['user3', {'301,dev3_1': [10301, 10301]},
+                           {'301,dev3_1': ['day1_u3_h1', 'day2_u3_h1'], '302,dev3_2': ['day2_u3_h2']}],
+                          ['user4', {'401,dev4_1': [10401], '402,dev4_2': [10402]},
+                           {'401,dev4_1': ['day2_u4_h1'], '402,dev4_2': ['day2_u4_h2']}],
+                          ]
+
+        full_day1_day2_day3 = [['user1', {'101,dev1_1': [10101, 10101, None], '102,dev1_2': [10102, 10102, None]},
+                           {'101,dev1_1': ['day1_u1_h1', 'day2_u1_h1', None], '102,dev1_2': ['day1_u1_h2', 'day2_u1_h2', None]}],
+                          ['user2', {'201,dev2_1': [10201, None, 10201], '202,dev2_2': [10202, None, None]},
+                           {'201,dev2_1': ['day1_u2_h1', None, 'day1_u2_h1'], '202,dev2_2': ['day1_u2_h2', None, None]}],
+                          ['user3', {'301,dev3_1': [10301, 10301, None], '302,dev3_2': [10302]},
+                           {'301,dev3_1': ['day1_u3_h1', 'day2_u3_h1', None], '302,dev3_2': ['day2_u3_h2', None]}],
+                          ['user4', {'401,dev4_1': [10401, None], '402,dev4_2': [10402, None]},
+                           {'401,dev4_1': ['day2_u4_h1', None], '402,dev4_2': ['day2_u4_h2', None]}],
+                          ]
+        full_day2_day3 = [['user1', {'101,dev1_1': [10101, None], '102,dev1_2': [10102, None]},
+                           {'101,dev1_1': ['day2_u1_h1', None], '102,dev1_2': ['day2_u1_h2', None]}],
+                          ['user2', {'201,dev2_1': [None, 10201]},
+                           {'201,dev2_1': [None, 'day1_u2_h1']}],
+                          ['user3', {'301,dev3_1': [10301, None], '302,dev3_2': [10302]},
+                           {'301,dev3_1': ['day2_u3_h1', None], '302,dev3_2': ['day2_u3_h2', None]}],
+                          ['user4', {'401,dev4_1': [10401, None], '402,dev4_2': [10402, None]},
+                           {'401,dev4_1': ['day2_u4_h1', None], '402,dev4_2': ['day2_u4_h2', None]}],
+                          ]
+
         schema = StructType([
             StructField('uid', StringType(), True),
             StructField(f'num_{FullIncAlgo.HISTORY_COL_SUFFIX}',
@@ -202,11 +233,39 @@ class TestFullIncAlgo(unittest.TestCase):
                         MapType(StringType(), ArrayType(StringType())), True)
         ])
         expected_full_day1_df = self.sc.parallelize(full_day1).toDF(schema)
+        expected_full_day1_day2_df = self.sc.parallelize(
+            full_day1_day2).toDF(schema)
+        expected_full_day1_day2_day3_df = self.sc.parallelize(
+            full_day1_day2_day3).toDF(schema)
+        expected_full_day2_day3_df = self.sc.parallelize(
+            full_day2_day3).toDF(schema)
 
-        algo1 = FullIncAlgo(self.day1_df, ['uid'], ['rid', 'did'], ['num', 'desc'], None)
+        algo1 = FullIncAlgo(self.day1_df, ['uid'], [
+                            'rid', 'did'], ['num', 'desc'], None)
         real_full_day1 = algo1.run().select('uid', 'num_history_', 'desc_history_')
         assert_pyspark_df_equal(
             real_full_day1, expected_full_day1_df, check_column_names=True, order_by=['uid'])
+
+        algo2 = FullIncAlgo(self.day2_df, ['uid'], ['rid', 'did'], [
+                            'num', 'desc'], real_full_day1)
+        real_full_day1_day2 = algo2.run().select(
+            'uid', 'num_history_', 'desc_history_')
+        assert_pyspark_df_equal(
+            real_full_day1_day2, expected_full_day1_day2_df, check_column_names=True, order_by=['uid'])
+
+        algo3 = FullIncAlgo(self.day3_df, ['uid'], ['rid', 'did'], [
+                            'num', 'desc'], real_full_day1_day2)
+        real_full_day1_day2_day3 = algo3.run().select(
+            'uid', 'num_history_', 'desc_history_')
+        assert_pyspark_df_equal(
+            real_full_day1_day2_day3, expected_full_day1_day2_day3_df, check_column_names=True, order_by=['uid'])
+
+        algo4 = FullIncAlgo(self.day3_df, ['uid'], ['rid', 'did'], [
+                            'num', 'desc'], real_full_day1_day2, 2)
+        real_full_day2_day3 = algo4.run().select(
+            'uid', 'num_history_', 'desc_history_')
+        assert_pyspark_df_equal(
+            real_full_day2_day3, expected_full_day2_day3_df, check_column_names=True, order_by=['uid'])
 
 if __name__ == '__main__':
     unittest.main()

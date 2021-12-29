@@ -123,7 +123,7 @@ class FullIncAlgo:
 
         if rtn_inc is None:
             if has_second_key:
-                rtn_inc = [None]
+                rtn_inc = []
             else:
                 rtn_inc = None
 
@@ -136,21 +136,32 @@ class FullIncAlgo:
             full, inc_list, has_second_key)
 
         assert (isinstance(full, dict))
+
+        unaccessed_second_key = set(full.keys())
         for inc in inc_list:
             loc = inc.rfind(':')
             second_key = inc[: loc]
             value = type_generic.str_2_value(inc[loc + 1:], type_str)
+
+            # 去除本次迭代访问过的second key
+            if second_key in unaccessed_second_key:
+                unaccessed_second_key.remove(second_key)
+
             if second_key in full:
                 full[second_key].append(value)
             else:
                 full[second_key] = [value]
 
+        # 本轮迭代缺失的数据，填补None
+        for second_key in unaccessed_second_key:
+            full[second_key].append(None)
+
         for second_key, value_list in full.items():
             if len(value_list) > full_history_times:
                 full[second_key] = value_list[1:]
 
-        for second_key, value_list in full.items():
-            if all(value is None for value in value_list):
+        for second_key in list(full.keys()):
+            if all(value is None for value in full[second_key]):
                 del full[second_key]
 
         if len(full) == 0:
@@ -228,6 +239,7 @@ class FullIncAlgo:
         else:
             join_df = self._full_df.join(
                 group_df, on=self._primary_key_col_names, how='full')
+        join_df.show()
 
         update_df = join_df
         for name in self._value_col_names:
@@ -244,7 +256,7 @@ class FullIncAlgo:
 
             update_df = (update_df
                          .withColumn(tmp_col_name, update_row_udf(
-                funs.col(col_name), funs.col(tmp_list_col_name), funs.lit(value_type)))
+                            funs.col(col_name), funs.col(tmp_list_col_name), funs.lit(value_type)))
                          .drop(col_name, tmp_list_col_name)
                          .withColumnRenamed(tmp_col_name, col_name)
                          .cache()
